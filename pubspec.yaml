@@ -30,9 +30,16 @@ environment:
 dependencies:
   avatar_glow: ^2.0.2
   cupertino_icons: ^1.0.2
+  file_picker: ^5.2.6
   flutter:
     sdk: flutter
+  flutter_chat_ui: ^1.6.6
+  image_picker: ^0.8.7+1
+  mime: ^1.0.4
+  open_filex: ^4.3.2
+  path_provider: ^2.0.14
   speech_to_text: ^6.1.1
+  uuid: ^3.0.7
 
 dev_dependencies:
   flutter_lints: ^2.0.0
