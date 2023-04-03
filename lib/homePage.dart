@@ -15,6 +15,9 @@ import 'package:open_filex/open_filex.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -23,113 +26,169 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
+enum TtsState { playing, stopped, paused, continued }
+
 class _HomePageState extends State<HomePage> {
+  // speech to text
   List<types.Message> _messages = [];
-  final _user = const types.User(id: '82091008-a484-4a89-ae75-a22bf8d6f3ac');
+  final _user = const types.User(
+      id: '82091008-a484-4a89-ae75-a22bf8d6f3ac',
+      firstName: "hyuti",
+      lastName: "le");
+  final _otherUser = const types.User(
+      firstName: "John",
+      id: "4c2307ba-3d40-442f-b1ff-b271f63904ca",
+      lastName: "Doe");
   var _sttxt = sttxt.SpeechToText();
   String text = "";
   bool _speechEnabled = false;
+
+  // text to speech
+  late FlutterTts flutterTts;
+  String? language;
+  String? engine;
+  double volume = 0.5;
+  double pitch = 1.0;
+  double rate = 0.5;
+  bool isCurrentLanguageInstalled = false;
+
+  int? _inputLength;
+
+  TtsState ttsState = TtsState.stopped;
+
+  get isPlaying => ttsState == TtsState.playing;
+  get isStopped => ttsState == TtsState.stopped;
+  get isPaused => ttsState == TtsState.paused;
+  get isContinued => ttsState == TtsState.continued;
+
+  bool get isIOS => !kIsWeb && Platform.isIOS;
+  bool get isAndroid => !kIsWeb && Platform.isAndroid;
+  bool get isWindows => !kIsWeb && Platform.isWindows;
+  bool get isWeb => kIsWeb;
 
   @override
   void initState() {
     super.initState();
     _initSpeech();
     _loadMessages();
+    _initTts();
   }
 
-  void _addMessage(types.Message message) {
-    setState(() {
-      _messages.insert(0, message);
+  _initTts() {
+    flutterTts = FlutterTts();
+
+    _setAwaitOptions();
+
+    if (isAndroid) {
+      _getDefaultEngine();
+      _getDefaultVoice();
+    }
+
+    flutterTts.setStartHandler(() {
+      setState(() {
+        print("Playing");
+        ttsState = TtsState.playing;
+      });
+    });
+
+    if (isAndroid) {
+      flutterTts.setInitHandler(() {
+        setState(() {
+          print("TTS Initialized");
+        });
+      });
+    }
+
+    flutterTts.setCompletionHandler(() {
+      setState(() {
+        print("Complete");
+        ttsState = TtsState.stopped;
+      });
+    });
+
+    flutterTts.setCancelHandler(() {
+      setState(() {
+        print("Cancel");
+        ttsState = TtsState.stopped;
+      });
+    });
+
+    flutterTts.setPauseHandler(() {
+      setState(() {
+        print("Paused");
+        ttsState = TtsState.paused;
+      });
+    });
+
+    flutterTts.setContinueHandler(() {
+      setState(() {
+        print("Continued");
+        ttsState = TtsState.continued;
+      });
+    });
+
+    flutterTts.setErrorHandler((msg) {
+      setState(() {
+        print("error: $msg");
+        ttsState = TtsState.stopped;
+      });
     });
   }
 
-  void _handleAttachmentPressed() {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (BuildContext context) => SafeArea(
-        child: SizedBox(
-          height: 144,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _handleImageSelection();
-                },
-                child: const Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text('Photo'),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _handleFileSelection();
-                },
-                child: const Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text('File'),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text('Cancel'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Future<dynamic> _getLanguages() async => await flutterTts.getLanguages;
 
-  void _handleFileSelection() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-    );
+  Future<dynamic> _getEngines() async => await flutterTts.getEngines;
 
-    if (result != null && result.files.single.path != null) {
-      final message = types.FileMessage(
-        author: _user,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        id: const Uuid().v4(),
-        mimeType: lookupMimeType(result.files.single.path!),
-        name: result.files.single.name,
-        size: result.files.single.size,
-        uri: result.files.single.path!,
-      );
-
-      _addMessage(message);
+  Future _getDefaultEngine() async {
+    var engine = await flutterTts.getDefaultEngine;
+    if (engine != null) {
+      print(engine);
     }
   }
 
-  void _handleImageSelection() async {
-    final result = await ImagePicker().pickImage(
-      imageQuality: 70,
-      maxWidth: 1440,
-      source: ImageSource.gallery,
-    );
-
-    if (result != null) {
-      final bytes = await result.readAsBytes();
-      final image = await decodeImageFromList(bytes);
-
-      final message = types.ImageMessage(
-        author: _user,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        height: image.height.toDouble(),
-        id: const Uuid().v4(),
-        name: result.name,
-        size: bytes.length,
-        uri: result.path,
-        width: image.width.toDouble(),
-      );
-
-      _addMessage(message);
+  Future _getDefaultVoice() async {
+    var voice = await flutterTts.getDefaultVoice;
+    if (voice != null) {
+      print(voice);
     }
+  }
+
+  Future _speak(String msg) async {
+    await flutterTts.setVolume(volume);
+    await flutterTts.setSpeechRate(rate);
+    await flutterTts.setPitch(pitch);
+
+    await flutterTts.speak(msg);
+  }
+
+  Future _setAwaitOptions() async {
+    await flutterTts.awaitSpeakCompletion(true);
+  }
+
+  Future _stop() async {
+    var result = await flutterTts.stop();
+    if (result == 1) setState(() => ttsState = TtsState.stopped);
+  }
+
+  Future _pause() async {
+    var result = await flutterTts.pause();
+    if (result == 1) setState(() => ttsState = TtsState.paused);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    flutterTts.stop();
+  }
+
+  void _addTextMessage(types.TextMessage msg) {
+    _addMessage(msg);
+  }
+
+  void _addMessage(types.Message msg) {
+    setState(() {
+      _messages.insert(0, msg);
+    });
   }
 
   void _handleMessageTap(BuildContext _, types.Message message) async {
@@ -192,11 +251,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   types.TextMessage _buildTextMsgWithStr(String message) {
+    return _buildMsgWithUser(message, _user);
+  }
+
+  types.TextMessage _buildMsgWithUser(String msg, types.User u) {
     return types.TextMessage(
-      author: _user,
+      author: u,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: const Uuid().v4(),
-      text: message,
+      status: types.Status.seen,
+      text: msg,
     );
   }
 
@@ -204,10 +268,19 @@ class _HomePageState extends State<HomePage> {
     return _buildTextMsgWithStr(message.text);
   }
 
+  String _chatBot(types.PartialText msg) {
+    // TODO
+    return "Hello world";
+  }
+
   void _handleSendPressed(types.PartialText message) {
     if (_sttxt.isNotListening) {
-      final textMessage = _buildTextMsg(message);
-      _addMessage(textMessage);
+      String repliedMsg = _chatBot(message);
+      final selfMsg = _buildTextMsg(message);
+      final botMsg = _buildMsgWithUser(repliedMsg, _otherUser);
+      _addTextMessage(selfMsg);
+      _addTextMessage(botMsg);
+      _speak(repliedMsg);
     }
   }
 
@@ -258,7 +331,7 @@ class _HomePageState extends State<HomePage> {
   void _stopListening() async {
     await _sttxt.stop();
     final textMessage = _buildTextMsgWithStr(text);
-    _addMessage(textMessage);
+    _addTextMessage(textMessage);
 
     setState(() {
       text = "";
@@ -272,41 +345,11 @@ class _HomePageState extends State<HomePage> {
         title: Text("Speech to text"),
         centerTitle: true,
       ),
-      // body: Column(
-      //   crossAxisAlignment: CrossAxisAlignment.end,
-      //   mainAxisAlignment: MainAxisAlignment.end,
-      //   children: [
-      //     SingleChildScrollView(
-      //       child: Container(
-      //         child: Padding(
-      //           padding: const EdgeInsets.all(12.0),
-      //           child: Text(
-      //             _sttxt.isListening
-      //                 ? '$text'
-      //                 : _speechEnabled
-      //                     ? "Tap the microphone to start listening..."
-      //                     : "Speech not available",
-      //             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
-      //           ),
-      //         ),
-      //       ),
-      //     ),
-      //     const Padding(
-      //       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 74),
-      //       child: TextField(
-      //         decoration: InputDecoration(
-      //             border: OutlineInputBorder(),
-      //             hintText: "Enter a search term"),
-      //       ),
-      //     ),
-      //   ],
-      // ),
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 74),
         child: Chat(
           theme: const DefaultChatTheme(primaryColor: Colors.blue),
           messages: _messages,
-          onAttachmentPressed: _handleAttachmentPressed,
           onMessageTap: _handleMessageTap,
           onPreviewDataFetched: _handlePreviewDataFetched,
           onSendPressed: _handleSendPressed,
