@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -27,6 +28,8 @@ class HomePage extends StatefulWidget {
 }
 
 enum TtsState { playing, stopped, paused, continued }
+
+const MsgKey = "msgs";
 
 class _HomePageState extends State<HomePage> {
   // speech to text
@@ -188,6 +191,10 @@ class _HomePageState extends State<HomePage> {
   void _addMessage(types.Message msg) {
     setState(() {
       _messages.insert(0, msg);
+      String encoded = jsonEncode(_messages);
+      getPrefs().then((value) {
+        value.setString(MsgKey, encoded);
+      });
     });
   }
 
@@ -284,9 +291,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<SharedPreferences> getPrefs() async {
+    return await SharedPreferences.getInstance();
+  }
+
   void _loadMessages() async {
-    final response = await rootBundle.loadString('assets/messages.json');
-    final messages = (jsonDecode(response) as List)
+    final SharedPreferences prefs = await getPrefs();
+
+    String msgStr = await prefs.getString(MsgKey) ?? "[]";
+    // if (msgStr == "") {
+    //   msgStr = await rootBundle.loadString('assets/messages.json');
+    // }
+
+    final messages = (jsonDecode(msgStr) as List)
         .map((e) => types.Message.fromJson(e as Map<String, dynamic>))
         .toList();
 
