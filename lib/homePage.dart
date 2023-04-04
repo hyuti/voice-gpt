@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:avatar_glow/avatar_glow.dart';
@@ -19,6 +20,19 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'package:flag/flag.dart';
+
+@immutable
+class ChatL10nVi extends ChatL10n {
+  const ChatL10nVi({
+    super.attachmentButtonAccessibilityLabel = 'Gửi tệp',
+    super.emptyChatPlaceholder = 'Không có tin nhắn',
+    super.fileButtonAccessibilityLabel = 'File',
+    super.inputPlaceholder = 'Tin nhắn',
+    super.sendButtonAccessibilityLabel = 'Gửi',
+    super.unreadMessagesLabel = 'Tin nhắn chưa đọc',
+  });
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -30,8 +44,14 @@ class HomePage extends StatefulWidget {
 enum TtsState { playing, stopped, paused, continued }
 
 const MsgKey = "msgs";
+const ViId = "vi_VN";
+const ViName = "Vietnamese (Vietnam)";
+const EnId = "en_US";
+const EnName = "English (United States)";
 
 class _HomePageState extends State<HomePage> {
+  // common
+  String lang = EnId;
   // speech to text
   List<types.Message> _messages = [];
   final _user = const types.User(
@@ -160,6 +180,7 @@ class _HomePageState extends State<HomePage> {
     await flutterTts.setVolume(volume);
     await flutterTts.setSpeechRate(rate);
     await flutterTts.setPitch(pitch);
+    await flutterTts.setLanguage(lang);
 
     await flutterTts.speak(msg);
   }
@@ -299,9 +320,6 @@ class _HomePageState extends State<HomePage> {
     final SharedPreferences prefs = await getPrefs();
 
     String msgStr = await prefs.getString(MsgKey) ?? "[]";
-    // if (msgStr == "") {
-    //   msgStr = await rootBundle.loadString('assets/messages.json');
-    // }
 
     final messages = (jsonDecode(msgStr) as List)
         .map((e) => types.Message.fromJson(e as Map<String, dynamic>))
@@ -335,9 +353,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startListening() async {
-    await _sttxt.listen(
-      onResult: _onSpeechResult,
-    );
+    await _sttxt.listen(onResult: _onSpeechResult, localeId: lang);
     setState(() {});
   }
 
@@ -355,12 +371,43 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  String getLangCode(BuildContext context) {
+    String langCode = context.locale.toString();
+    switch (langCode) {
+      case "en":
+        return EnId;
+      case "vi":
+        return ViId;
+      default:
+        return EnId;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text("Speech to text"),
-        centerTitle: true,
+        actions: [
+          IconButton(
+              onPressed: () {
+                switch (getLangCode(context)) {
+                  case EnId:
+                    context.setLocale(Locale("vi"));
+                    break;
+                  case ViId:
+                    context.setLocale(Locale("en"));
+                    break;
+                  default:
+                    context.setLocale(Locale("vi"));
+                    break;
+                }
+              },
+              icon: Flag.fromCode(
+                  getLangCode(context) == EnId ? FlagsCode.US : FlagsCode.VN,
+                  height: 100,
+                  width: null))
+        ],
       ),
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 74),
@@ -372,7 +419,11 @@ class _HomePageState extends State<HomePage> {
           onSendPressed: _handleSendPressed,
           showUserAvatars: true,
           showUserNames: true,
+          disableImageGallery: true,
           user: _user,
+          l10n: getLangCode(context) == EnId
+              ? const ChatL10nEn()
+              : const ChatL10nVi(),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
