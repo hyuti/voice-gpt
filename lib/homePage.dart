@@ -24,6 +24,16 @@ import 'package:flag/flag.dart';
 import 'package:bubble/bubble.dart';
 import 'package:voice_gpt/utils.dart';
 
+enum TtsState { playing, stopped, paused, continued }
+
+enum SettingItems { enableOrDisableVoiceReader, clearMsgs }
+
+const MsgKey = "msgs";
+const ViId = "vi_VN";
+const ViName = "Vietnamese (Vietnam)";
+const EnId = "en_US";
+const EnName = "English (United States)";
+
 @immutable
 class ChatL10nVi extends ChatL10n {
   const ChatL10nVi({
@@ -43,17 +53,12 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-enum TtsState { playing, stopped, paused, continued }
-
-const MsgKey = "msgs";
-const ViId = "vi_VN";
-const ViName = "Vietnamese (Vietnam)";
-const EnId = "en_US";
-const EnName = "English (United States)";
-
 class _HomePageState extends State<HomePage> {
   // common
   String lang = EnId;
+  bool enableVoiceReader = true;
+  bool clearMsgs = false;
+
   // speech to text
   List<types.Message> _messages = [];
   final _user = const types.User(
@@ -310,7 +315,10 @@ class _HomePageState extends State<HomePage> {
       final botMsg = _buildMsgWithUser(repliedMsg, _otherUser);
       _addTextMessage(selfMsg);
       _addTextMessage(botMsg);
-      _speak(repliedMsg);
+
+      if (enableVoiceReader) {
+        _speak(repliedMsg);
+      }
     }
   }
 
@@ -420,7 +428,7 @@ class _HomePageState extends State<HomePage> {
                           _speak(m.text);
                         }
                       },
-                      icon: Icon(Icons.play_circle))
+                      icon: const Icon(Icons.play_circle))
                 ],
               ),
             );
@@ -448,7 +456,37 @@ class _HomePageState extends State<HomePage> {
               icon: Flag.fromCode(
                   getLangCode(context) == EnId ? FlagsCode.US : FlagsCode.VN,
                   height: 100,
-                  width: null))
+                  width: null)),
+          PopupMenuButton(
+              icon: const Icon(Icons.settings),
+              onSelected: (SettingItems item) {
+                switch (item) {
+                  case SettingItems.enableOrDisableVoiceReader:
+                    enableVoiceReader = !enableVoiceReader;
+                    break;
+                  case SettingItems.clearMsgs:
+                    getPrefs().then((value) {
+                      value.remove(MsgKey);
+                    });
+                    setState(() {
+                      _messages.clear();
+                    });
+                    break;
+                  default:
+                }
+              },
+              itemBuilder: ((BuildContext context) => [
+                    PopupMenuItem(
+                      value: SettingItems.enableOrDisableVoiceReader,
+                      child: Text(enableVoiceReader == true
+                          ? "disable_voice_reader".tr()
+                          : "enable_voice_reader".tr()),
+                    ),
+                    PopupMenuItem(
+                      value: SettingItems.clearMsgs,
+                      child: Text("clear_messages".tr()),
+                    )
+                  ]))
         ],
       ),
       body: Padding(

@@ -1,1 +1,5 @@
-{}
+{
+    "disable_voice_reader":"Disable voice reader",
+    "enable_voice_reader":"Enable voice reader",
+    "clear_messages":"Clear messages"
+}

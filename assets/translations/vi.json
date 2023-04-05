@@ -1,1 +1,5 @@
-{}
+{
+    "disable_voice_reader":"Tắt tự đọc",
+    "enable_voice_reader":"Bật tự đọc",
+    "clear_messages":"Xoá lịch sử tin nhắn"
+}
