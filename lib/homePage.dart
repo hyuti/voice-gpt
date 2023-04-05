@@ -21,6 +21,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:flag/flag.dart';
+import 'package:bubble/bubble.dart';
+
+T? cast<T>(x) => x is T ? x : null;
 
 @immutable
 class ChatL10nVi extends ChatL10n {
@@ -180,7 +183,7 @@ class _HomePageState extends State<HomePage> {
     await flutterTts.setVolume(volume);
     await flutterTts.setSpeechRate(rate);
     await flutterTts.setPitch(pitch);
-    await flutterTts.setLanguage(lang);
+    await flutterTts.setLanguage(getLangCode(context));
 
     await flutterTts.speak(msg);
   }
@@ -298,7 +301,7 @@ class _HomePageState extends State<HomePage> {
 
   String _chatBot(types.PartialText msg) {
     // TODO
-    return "Hello world";
+    return getLangCode(context) == EnId ? "Hello world" : "Xin chào";
   }
 
   void _handleSendPressed(types.PartialText message) {
@@ -353,7 +356,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startListening() async {
-    await _sttxt.listen(onResult: _onSpeechResult, localeId: lang);
+    await _sttxt.listen(
+        onResult: _onSpeechResult, localeId: getLangCode(context));
     setState(() {});
   }
 
@@ -383,6 +387,53 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Widget _bubbleBuilderInner(
+    Widget child, {
+    required message,
+    required nextMessageInGroup,
+  }) =>
+      Bubble(
+        child: child,
+        color: _user.id != message.author.id ||
+                message.type == types.MessageType.image
+            ? Colors.white
+            : Colors.blue,
+        margin: nextMessageInGroup
+            ? const BubbleEdges.symmetric(horizontal: 8)
+            : null,
+        padding: const BubbleEdges.all(2),
+        nip: nextMessageInGroup
+            ? BubbleNip.no
+            : _user.id != message.author.id
+                ? BubbleNip.leftBottom
+                : BubbleNip.rightBottom,
+      );
+
+  Widget _bubbleBuilder(
+    Widget child, {
+    required message,
+    required nextMessageInGroup,
+  }) =>
+      _user.id == message.author.id || message.type != types.MessageType.text
+          ? _bubbleBuilderInner(child,
+              message: message, nextMessageInGroup: nextMessageInGroup)
+          : Container(
+              child: Row(
+                children: [
+                  _bubbleBuilderInner(child,
+                      message: message, nextMessageInGroup: nextMessageInGroup),
+                  IconButton(
+                      onPressed: () {
+                        types.TextMessage? m = cast<types.TextMessage>(message);
+                        if (m != null) {
+                          _speak(m.text);
+                        }
+                      },
+                      icon: Icon(Icons.play_circle))
+                ],
+              ),
+            );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -399,7 +450,7 @@ class _HomePageState extends State<HomePage> {
                     context.setLocale(Locale("en"));
                     break;
                   default:
-                    context.setLocale(Locale("vi"));
+                    context.setLocale(Locale("en"));
                     break;
                 }
               },
@@ -424,6 +475,7 @@ class _HomePageState extends State<HomePage> {
           l10n: getLangCode(context) == EnId
               ? const ChatL10nEn()
               : const ChatL10nVi(),
+          bubbleBuilder: _bubbleBuilder,
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
