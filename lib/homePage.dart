@@ -22,8 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:flag/flag.dart';
 import 'package:bubble/bubble.dart';
-
-T? cast<T>(x) => x is T ? x : null;
+import 'package:voice_gpt/utils.dart';
 
 @immutable
 class ChatL10nVi extends ChatL10n {
@@ -343,13 +342,9 @@ class _HomePageState extends State<HomePage> {
     _speechEnabled = await _sttxt.initialize(
       onStatus: (status) {
         print(status);
-        if (status == "notListening") {
-          _stopListening();
-        }
       },
       onError: (errorNotification) {
         print(errorNotification);
-        _stopListening();
       },
     );
     setState(() {});
@@ -361,10 +356,6 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
-  /// Manually stop the active speech recognition session
-  /// Note that there are also timeouts that each platform enforces
-  /// and the SpeechToText plugin supports setting timeouts on the
-  /// listen method.
   void _stopListening() async {
     await _sttxt.stop();
     final textMessage = _buildTextMsgWithStr(text);
