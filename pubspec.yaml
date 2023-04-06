@@ -37,9 +37,11 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_chat_ui: ^1.6.6
+  flutter_dotenv: ^5.0.2
   flutter_localizations:
     sdk: flutter
   flutter_tts: ^3.6.3
+  http: ^0.13.5
   image_picker: ^0.8.7+1
   intl: any
   mime: ^1.0.4
@@ -67,6 +69,7 @@ flutter:
     - assets/messages.json
     - assets/translations/en.json
     - assets/translations/vi.json
+    - assets/.env
   #   - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

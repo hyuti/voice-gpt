@@ -29,9 +29,9 @@ enum TtsState { playing, stopped, paused, continued }
 enum SettingItems { enableOrDisableVoiceReader, clearMsgs }
 
 const MsgKey = "msgs";
-const ViId = "vi_VN";
+const ViId = "vi-VN";
 const ViName = "Vietnamese (Vietnam)";
-const EnId = "en_US";
+const EnId = "en-US";
 const EnName = "English (United States)";
 
 @immutable
@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> {
   String lang = EnId;
   bool enableVoiceReader = true;
   bool clearMsgs = false;
+  ChatGPTSDK sdk = ChatGPTSDK();
 
   // speech to text
   List<types.Message> _messages = [];
@@ -66,9 +67,9 @@ class _HomePageState extends State<HomePage> {
       firstName: "hyuti",
       lastName: "le");
   final _otherUser = const types.User(
-      firstName: "John",
+      firstName: "Voice",
       id: "4c2307ba-3d40-442f-b1ff-b271f63904ca",
-      lastName: "Doe");
+      lastName: "GPT");
   var _sttxt = sttxt.SpeechToText();
   String text = "";
   bool _speechEnabled = false;
@@ -303,22 +304,21 @@ class _HomePageState extends State<HomePage> {
     return _buildTextMsgWithStr(message.text);
   }
 
-  String _chatBot(types.PartialText msg) {
-    // TODO
-    return getLangCode(context) == EnId ? "Hello world" : "Xin chào";
+  void _chatBot(types.PartialText msg) {
+    sdk.fetch(msg.text).then((value) {
+      final res = value.choices.first.message.content;
+      final botMsg = _buildMsgWithUser(res, _otherUser);
+      _addTextMessage(botMsg);
+      if (enableVoiceReader) {
+        _speak(res);
+      }
+    });
   }
 
   void _handleSendPressed(types.PartialText message) {
     if (_sttxt.isNotListening) {
-      String repliedMsg = _chatBot(message);
-      final selfMsg = _buildTextMsg(message);
-      final botMsg = _buildMsgWithUser(repliedMsg, _otherUser);
-      _addTextMessage(selfMsg);
-      _addTextMessage(botMsg);
-
-      if (enableVoiceReader) {
-        _speak(repliedMsg);
-      }
+      _chatBot(message);
+      _addTextMessage(_buildTextMsg(message));
     }
   }
 
@@ -366,6 +366,7 @@ class _HomePageState extends State<HomePage> {
 
   void _stopListening() async {
     await _sttxt.stop();
+    _chatBot(types.PartialText(text: text));
     final textMessage = _buildTextMsgWithStr(text);
     _addTextMessage(textMessage);
 
@@ -392,7 +393,6 @@ class _HomePageState extends State<HomePage> {
     required nextMessageInGroup,
   }) =>
       Bubble(
-        child: child,
         color: _user.id != message.author.id ||
                 message.type == types.MessageType.image
             ? Colors.white
@@ -406,6 +406,7 @@ class _HomePageState extends State<HomePage> {
             : _user.id != message.author.id
                 ? BubbleNip.leftBottom
                 : BubbleNip.rightBottom,
+        child: child,
       );
 
   Widget _bubbleBuilder(
@@ -419,16 +420,21 @@ class _HomePageState extends State<HomePage> {
           : Container(
               child: Row(
                 children: [
-                  _bubbleBuilderInner(child,
-                      message: message, nextMessageInGroup: nextMessageInGroup),
-                  IconButton(
-                      onPressed: () {
-                        types.TextMessage? m = cast<types.TextMessage>(message);
-                        if (m != null) {
+                  Expanded(
+                    flex: 7,
+                    child: _bubbleBuilderInner(child,
+                        message: message,
+                        nextMessageInGroup: nextMessageInGroup),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: IconButton(
+                        onPressed: () {
+                          types.TextMessage? m = message as types.TextMessage;
                           _speak(m.text);
-                        }
-                      },
-                      icon: const Icon(Icons.play_circle))
+                        },
+                        icon: const Icon(Icons.play_circle)),
+                  ),
                 ],
               ),
             );
