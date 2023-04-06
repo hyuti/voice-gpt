@@ -214,6 +214,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _addTextMessage(types.TextMessage msg) {
+    if (msg.text == "") {
+      return;
+    }
     _addMessage(msg);
   }
 
@@ -305,6 +308,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _chatBot(types.PartialText msg) {
+    if (msg.text == "") {
+      return;
+    }
     sdk.fetch(msg.text).then((value) {
       final res = value.choices.first.message.content;
       final botMsg = _buildMsgWithUser(res, _otherUser);
@@ -341,6 +347,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onSpeechResult(SpeechRecognitionResult result) {
+    print(result.recognizedWords);
     setState(() {
       text += result.recognizedWords;
     });
@@ -350,8 +357,12 @@ class _HomePageState extends State<HomePage> {
     _speechEnabled = await _sttxt.initialize(
       onStatus: (status) {
         print(status);
+        if (status != "listening") {
+          _stopListening();
+        }
       },
       onError: (errorNotification) {
+        _stopListening();
         print(errorNotification);
       },
     );
@@ -359,20 +370,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startListening() async {
+    setState(() {
+      text = "";
+    });
     await _sttxt.listen(
-        onResult: _onSpeechResult, localeId: getLangCode(context));
+      onResult: _onSpeechResult,
+      localeId: getLangCode(context),
+      pauseFor: const Duration(seconds: 4),
+    );
     setState(() {});
   }
 
   void _stopListening() async {
     await _sttxt.stop();
-    _chatBot(types.PartialText(text: text));
-    final textMessage = _buildTextMsgWithStr(text);
+    String t = text;
+    _chatBot(types.PartialText(text: t));
+    final textMessage = _buildTextMsgWithStr(t);
     _addTextMessage(textMessage);
-
-    setState(() {
-      text = "";
-    });
+    setState(() {});
   }
 
   String getLangCode(BuildContext context) {
