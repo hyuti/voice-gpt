@@ -6,7 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 final ChatGPTApiKey = dotenv.env["ApiKey"];
 const ChatGPTUrl = "https://api.openai.com/v1/chat/completions";
 const ChatGPTModel = "gpt-3.5-turbo";
-const ChatGPTMaxTokens = 20;
+const ChatGPTMaxTokens = 100;
 
 T? cast<T>(x) => x is T ? x : null;
 
